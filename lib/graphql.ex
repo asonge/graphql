@@ -1,2 +1,2 @@
-defmodule Graphql do
+defmodule GraphQL do
 end
