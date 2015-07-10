@@ -11,8 +11,8 @@ defmodule GraphqlLangParserTest do
   test "basic query document" do
     assert {:document, [
       {:selection_set, _, [
-        {:field, _, [nil, "foo", _, _, _]},
-        {:field, _, [nil, "bar", _, _, _]}
+        {:field, _, ["foo", "foo", _, _, _]},
+        {:field, _, ["bar", "bar", _, _, _]}
       ]}
     ]} = parse("{ foo bar }")
   end
@@ -20,9 +20,9 @@ defmodule GraphqlLangParserTest do
   test "nested selection set" do
     assert {:document, [
       {:selection_set, _, [
-        {:field, _, [nil, "foo", _, _,
+        {:field, _, ["foo", "foo", _, _,
           {:selection_set, _, [
-            {:field, _, [nil, "bar", _, _, _]}
+            {:field, _, ["bar", "bar", _, _, _]}
           ]}
         ]}
       ]}
@@ -32,7 +32,7 @@ defmodule GraphqlLangParserTest do
   test "alias and directives and arguments" do
     assert {:document, [
       {:selection_set, _, [
-        {:field, _, [nil, "foo", _, {:directives, _, [
+        {:field, _, ["foo", "foo", _, {:directives, _, [
             {:directive, _, ["include",
               {:argument_list, _, [{:argument, _, ["if", {:var, _, "condition"}]}]}
             ]}
@@ -46,13 +46,18 @@ defmodule GraphqlLangParserTest do
     assert {:document, [
       {:selection_set, _, [
         {:field, _, ["user_foo", "foo",
-          {:argument_list, _, [{:argument, _, ["id", {:var, _, "id"}]}]}, _,
+          {:argument_list, _, [
+            {:argument, _, ["id", {:var, _, "id"}]},
+            {:argument, _, ["a", 1]},
+            {:argument, _, ["b", {:array, _, [1,2.0,3]}]},
+            {:argument, _, ["c", {:object, _, %{"name" => "value"}}]}
+          ]}, _,
           {:selection_set, _, [
-            {:field, _, [nil, "bar", _, _, _]}
+            {:field, _, ["bar", "bar", _, _, _]}
           ]}
         ]}
       ]}
-    ]} = parse("{ user_foo: foo(id: $id) { bar }}")
+    ]} = parse(~S'{ user_foo: foo(id: $id, a: 1, b: [1,2.0,3], c: {name: "value"}) { bar }}')
   end
 
 end

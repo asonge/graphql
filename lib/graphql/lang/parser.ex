@@ -70,8 +70,53 @@ defmodule GraphQL.Lang.Parser do
     {:error, {ctx, "Expected variable"}}
   end
 
+  defp scalar_value([{value, _}|tokens]) when is_integer(value)
+                                    or is_float(value)
+                                    or value === true
+                                    or value === false, do: {:ok, value, tokens}
+  defp scalar_value([{_, ctx}|_]), do: {:error, {ctx, "Expected scalar value"}}
+  defp str_value([{{:str, value}, _}|tokens]), do: {:ok, value, tokens}
+  defp str_value([{_, ctx}|_]), do: {:error, {ctx, "Expected string value"}}
+
+  defp array_value([{:"[", ctx}|tokens]) do
+    {tokens, items} = expect collect_until(tokens,
+        fn [{:"]", _}|tokens] -> {:ok, tokens}
+           _ -> false
+        end,
+        &expect(const_value(&1))
+      )
+    {:ok, {:array, ctx, items}, tokens}
+  end
+  defp array_value([{_,ctx}|_]), do: {:error, {ctx, "Expected array"}}
+
+  defp obj_field([{{:identifier, name}, ctx}, {:":",_}|tokens]) do
+    {tokens, value} = expect const_value(tokens)
+    {:ok, {name, value}, tokens}
+  end
+  defp obj_field([{_, ctx}|_]) do
+    {:error, {ctx, "Expecting an object field"}}
+  end
+
+  defp obj_value([{:"{", ctx}|tokens]) do
+    {tokens, items} = expect collect_until(tokens,
+        fn [{:"}", _}|tokens] -> {:ok, tokens}
+           _ -> false
+        end,
+        &expect(obj_field(&1))
+      )
+    {:ok, {:object, ctx, items |> Enum.into(%{})}, tokens}
+  end
+  defp obj_value([{_,ctx}|_]), do: {:error, {ctx, "Expected object"}}
+
+  defp const_value([{_, ctx}|_]=tokens) do
+    case one_of(tokens, [&scalar_value/1, &str_value/1, &array_value/1, &obj_value/1]) do
+      {:ok, value, tokens} -> {:ok, value, tokens}
+      {:error, _} ->
+        {:error, {ctx, "Expected value"}}
+    end
+  end
   defp value([{_, ctx}|_]=tokens) do
-    case one_of(tokens, [&variable/1]) do
+    case one_of(tokens, [&variable/1, &scalar_value/1, &str_value/1, &array_value/1, &obj_value/1]) do
       {:ok, value, tokens} -> {:ok, value, tokens}
       {:error, _} ->
         {:error, {ctx, "Expected value"}}
@@ -125,7 +170,7 @@ defmodule GraphQL.Lang.Parser do
     {tokens, args} = optional(tokens, &argument_list/1, [])
     {tokens, directives} = optional(tokens, &directives/1, [])
     {tokens, selection} = optional(tokens, &selection_set/1, [])
-    {:ok, {:field, ctx, [nil, name, args, directives, selection]}, tokens}
+    {:ok, {:field, ctx, [name, name, args, directives, selection]}, tokens}
   end
   defp field([{_,ctx}|_]=tokens) do
     IO.inspect tokens
