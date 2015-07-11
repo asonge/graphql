@@ -60,4 +60,28 @@ defmodule GraphqlLangParserTest do
     ]} = parse(~S'{ user_foo: foo(id: $id, a: 1, b: [1,2.0,3], c: {name: "value"}) { bar }}')
   end
 
+  test "basic query" do
+    assert {:document, [
+      {:query, _, [
+        "getUser",
+        {:variable_definitions, _, [
+          {:argument_definition, _, ["id", {:type, _, "Integer"}, nil]}
+        ]},
+        _, # directives
+        {:selection_set, _, [
+          {:field, _, ["user", "user",
+            {:argument_list, _, [
+              {:argument, _, ["id", {:var, _, "id"}]}
+            ]},
+            _,
+            {:selection_set, _, [
+              {:field, _, ["id", "id", _, _, _]},
+              {:field, _, ["name", "name", _, _, _]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]} = parse("query getUser($id: Integer) { user(id: $id) { id, name } }")
+  end
+
 end
