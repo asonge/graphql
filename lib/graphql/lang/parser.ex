@@ -38,7 +38,7 @@ defmodule GraphQL.Lang.Parser do
         fn [{:"}", _}|tokens] -> {:ok, tokens}
            _ -> false
         end,
-        fn tokens1 -> expect(one_of tokens1, [&field/1, &fragment_spread/1, &inline_fragment/1]) end
+        fn tokens1 -> expect(one_of tokens1, [&field/1, &inline_fragment/1, &fragment_spread/1]) end
       )
     {:ok, {:selection_set, ctx, set}, rest}
   end
@@ -181,15 +181,20 @@ defmodule GraphQL.Lang.Parser do
   end
   defp fragment_spread([{_,ctx}|tokens]), do: make_error(tokens, "fragment spread")
 
-  defp fragment_definition([{{:identifier, "fragment"}}|tokens]) do
-    case tokens do
-      [{{:identifier, name},_},{{:identifier, "on"},_}] when name !== "on" ->
+  defp fragment_definition([{{:identifier, "fragment"},ctx}|tokens]) do
+    {tokens, {:name, _, name}} = expect name(tokens)
+    {tokens, definition} = expect(case tokens do
+      tokens when name === "on" ->
+        make_error(tokens, "Unexpected 'on'");
+      [{{:identifier, "on"},_}|tokens] ->
         {tokens, type} = expect type(tokens)
         {tokens, dirs} = optional tokens, &directives/1, []
         {tokens, selection} = expect selection_set(tokens)
+        {:ok, [name, type, dirs, selection], tokens}
       tokens ->
-        make_error(tokens)
-    end
+        make_error(tokens, "on keyword")
+    end)
+    {:ok, {:fragment_definition, ctx, definition}, tokens}
   end
   defp fragment_definition(tokens), do: make_error(tokens, "fragment definition")
 
@@ -207,7 +212,7 @@ defmodule GraphQL.Lang.Parser do
   end
   defp field(tokens), do: make_error(tokens, "field")
 
-  defp make_error([]), do: {:error, {%{}, "Unexpected end of file"}}
+  defp make_error([], token_name), do: {:error, {%{}, "Expected #{token_name}, got unexpected end of file"}}
   defp make_error([{{:identifier, identifier},ctx}|_], token_name), do: {:error, {ctx, "Expected #{token_name}, got '#{identifier}'"}}
   defp make_error([{{:str, str},ctx}|_], token_name), do: {:error, {ctx, "Expected #{token_name}, got '#{inspect str}'"}}
   defp make_error([{token,ctx}|_], token_name), do: {:error, {ctx, "Expected #{token_name}, got '#{token}'"}}

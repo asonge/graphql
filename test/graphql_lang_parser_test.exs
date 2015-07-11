@@ -84,4 +84,65 @@ defmodule GraphqlLangParserTest do
     ]} = parse("query getUser($id: Integer) { user(id: $id) { id, name } }")
   end
 
+  test "spread" do
+    query = """
+    query FragmentTyping {
+      profiles(handles: ["zuck", "cocacola"]) {
+        handle
+        ...userFragment
+        ... on Page {
+          likers { count }
+        }
+      }
+    }
+    fragment userFragment on User {
+      friends { count }
+    }
+    """
+    assert {:document, [
+      {:query, _, [
+        "FragmentTyping", _, _, {:selection_set, _, [
+          {:field, _, ["profiles", "profiles", _, _,
+            {:selection_set, _, [
+              {:field, _, ["handle", "handle", _, _, _]},
+              {:fragment_spread, _, ["userFragment", _]},
+              {:inline_fragment, _, [{:type, _, "Page"}, _, {:selection_set, _, [
+                {:field, _, ["likers", "likers", _, _, _]}
+              ]}]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {:fragment_definition, _, ["userFragment", {:type, _, "User"}, _,
+        {:selection_set, _, [
+          {:field, _, ["friends", "friends", _, _, _]}
+        ]}
+      ]},
+    ]} = parse(query)
+  end
+
+  test "Errors" do
+    assert_raise GraphQL.CompileError, fn -> parse("$") end
+    assert_raise GraphQL.CompileError, fn -> parse("query test($id)") end
+    assert_raise GraphQL.CompileError, fn -> parse("query $") end
+    assert_raise GraphQL.CompileError, fn -> parse("{ userName(id: {omg})}") end
+    assert_raise GraphQL.CompileError, fn -> parse("query test(@wrong)") end
+  end
+
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;
