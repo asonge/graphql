@@ -11,7 +11,7 @@ defmodule GraphQL.Lang.Lexer do
   end
 
   @linebreaks ["\r\n", "\r", "\n", "\x{2028}", "\x{2029}"]
-  @whitespace '\n\r\t\v\f, \xa0\x{2028}\x{2029}'
+  @whitespace ' \t\v\f,'
   @identifier_start_chars [?A..?Z, ?a..?z] |> Enum.flat_map(&(&1))
   @identifier_chars [@identifier_start_chars, '_', ?0..?9] |> Enum.flat_map(&(&1))
   @punctuator_chars '!$():=@[]{|}'
@@ -38,6 +38,9 @@ defmodule GraphQL.Lang.Lexer do
     defp tokens(<<unquote(lb)::binary, rest::binary>>, %{line: line}=ctx, acc) do
       tokens(rest, %{ctx|line: line+1, col: 1}, acc)
     end
+  end
+  defp tokens(<<"\xa0", rest::binary>>, ctx, acc) do
+    tokens(rest, bump(ctx), acc)
   end
   for c <- @whitespace do
     defp tokens(<<unquote(c), rest::binary>>, ctx, acc) do
@@ -76,7 +79,7 @@ defmodule GraphQL.Lang.Lexer do
     tokens(rest, ctx, acc)
   end
   defp tokens(rest, ctx, _) do
-    raise GraphQL.CompileError, line: ctx.line, col: ctx.col, description: "Unexpected characters #{rest}"
+    raise GraphQL.CompileError, line: ctx.line, col: ctx.col, description: "Unexpected characters #{inspect rest}"
   end
 
   for c <- @identifier_chars do

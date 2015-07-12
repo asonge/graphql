@@ -14,6 +14,14 @@ defmodule GraphqlLangLexerTest do
             {{:identifier, "omgwtf"}, %{line: 2, col: 1}}] = Lexer.tokenize("abc\nomgwtf")
   end
 
+  test "all line endings" do
+    assert [{_, %{line: 1}},{_,%{line: 2}},{_,%{line: 3}},{_,%{line: 4}},{_,%{line: 5}},{_,%{line: 6}}] = Lexer.tokenize("1\r\n2\r3\n4\x{2028}5\x{2029}6")
+  end
+
+  test "all whitespace" do
+    assert [_,_] = Lexer.tokenize("0\t\v\f, \xa01")
+  end
+
   test "puncuators" do
     assert [{:!,_},{:..., _},{:|, %{col: 7}}] = Lexer.tokenize("! ... |")
   end
@@ -30,6 +38,7 @@ defmodule GraphqlLangLexerTest do
     assert [{{:str, "test"}, _}, {2,%{col: 8}}] = Lexer.tokenize(~S("test" 2))
     assert [{{:str, "\r"}, _}] = Lexer.tokenize(~S("\r"))
     assert [{{:str, "\x{2028}"}, _}, {_, %{col: 10}}] = Lexer.tokenize(~S("\u2028" abc))
+    assert [{{:str, "\x{00CB}"}, _}, {_, %{col: 10}}] = Lexer.tokenize(~S("\u00Cb" abc))
     assert [{{:str, ""}, _}] = Lexer.tokenize(~S(""))
     assert [{{:str, " whitespace "}, _}] = Lexer.tokenize(~S(" whitespace "))
     assert [{{:str, "escaped \n\r\b\t\f"}, _}] = Lexer.tokenize(~S("escaped \n\r\b\t\f"))
@@ -59,6 +68,11 @@ defmodule GraphqlLangLexerTest do
 
   test "Bad strings" do
     assert_raise GraphQL.CompileError, fn -> Lexer.tokenize(~S(OMG \i)) end
+    for line <- ["\r\n", "\r", "\n", "\x{2028}", "\x{2029}"] do
+      assert_raise GraphQL.CompileError, fn -> Lexer.tokenize("\"omg#{line}wtf") end
+    end
+    assert_raise GraphQL.CompileError, fn -> Lexer.tokenize(~s("omg)) end
+    assert_raise GraphQL.CompileError, fn -> Lexer.tokenize(~s("omg\\z")) end
   end
 
 end
