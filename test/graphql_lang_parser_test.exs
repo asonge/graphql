@@ -65,7 +65,10 @@ defmodule GraphqlLangParserTest do
       {:query, _, [
         "getUser",
         {:variable_definitions, _, [
-          {:argument_definition, _, ["id", {:type, _, "Integer"}, nil]}
+          {:argument_definition, _, ["id", {:not_null, _, {:type, _, "Integer"}}, nil]},
+          {:argument_definition, _, ["friends", {:not_null, _, {:list_type, _, {:type, _, "Integer"}}}, nil]},
+          {:argument_definition, _, ["fof", {:list_type, _, {:type, _, "Integer"}}, nil]},
+          {:argument_definition, _, ["hidden", {:type, _, "Boolean"}, nil]}
         ]},
         _, # directives
         {:selection_set, _, [
@@ -81,7 +84,7 @@ defmodule GraphqlLangParserTest do
           ]}
         ]}
       ]}
-    ]} = parse("query getUser($id: Integer) { user(id: $id) { id, name } }")
+    ]} = parse("query getUser($id: Integer!, $friends: [Integer]!, $fof: [Integer], $hidden: Boolean) { user(id: $id) { id, name } }")
   end
 
   test "spread" do
@@ -122,11 +125,17 @@ defmodule GraphqlLangParserTest do
   end
 
   test "Errors" do
+    assert_raise GraphQL.CompileError, fn -> parse("{ 0 }") end
     assert_raise GraphQL.CompileError, fn -> parse("$") end
     assert_raise GraphQL.CompileError, fn -> parse("query test($id)") end
+    assert_raise GraphQL.CompileError, fn -> parse("query test($id: ...)") end
+    assert_raise GraphQL.CompileError, fn -> parse("query test($id: [Typ omg") end
     assert_raise GraphQL.CompileError, fn -> parse("query $") end
+    assert_raise GraphQL.CompileError, fn -> parse("{ userName(id omg") end
     assert_raise GraphQL.CompileError, fn -> parse("{ userName(id: {omg})}") end
     assert_raise GraphQL.CompileError, fn -> parse("query test(@wrong)") end
+    assert_raise GraphQL.CompileError, fn -> parse("fragment on foo bar") end
+    assert_raise GraphQL.CompileError, fn -> parse("fragment foo bar") end
   end
 
 end

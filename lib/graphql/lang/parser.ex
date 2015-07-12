@@ -129,9 +129,9 @@ defmodule GraphQL.Lang.Parser do
     case tokens do
       [{:"[",ctx}|tokens] ->
         case expect(type(tokens)) do
-          {[{:"]",_},{:"!",ctx2}|tokens], type} -> {:ok, {:list_type, ctx, {:not_null, ctx2, type}}, tokens}
+          {[{:"]",_},{:"!",ctx2}|tokens], type} -> {:ok, {:not_null, ctx, {:list_type, ctx2, type}}, tokens}
           {[{:"]",_}|tokens], type} -> {:ok, {:list_type, ctx, type}, tokens}
-          other -> other
+          {tokens, _} -> make_error(tokens, "end of list type")
         end
       [{{:identifier, name},ctx}, {:"!",ctx2}|tokens] -> {:ok, {:not_null, ctx2, {:type, ctx, name}}, tokens}
       [{{:identifier, name},ctx}|tokens] -> {:ok, {:type, ctx, name}, tokens}
@@ -172,10 +172,7 @@ defmodule GraphQL.Lang.Parser do
   defp inline_fragment([{_,ctx}|tokens]), do: make_error(tokens, "inline fragment")
 
   defp fragment_spread([{:"...", ctx}|tokens]) do
-    {tokens, {:name, _, name}} = expect(case name(tokens) do
-      {:ok, {:name, ctx, "on"}, _} -> make_error(tokens, "not to get \"on\"")
-      other -> other
-    end)
+    {tokens, {:name, _, name}} = expect name(tokens)
     {tokens, dirs} = optional tokens, &directives/1, []
     {:ok, {:fragment_spread, ctx, [name, dirs]}, tokens}
   end
