@@ -31,7 +31,8 @@ defmodule GraphqlLangLexerTest do
   end
 
   test "floats" do
-    assert [{1.0,_}, {-3.5,_}, {0.01,_}, {1.05e-3, %{col: 15}}] = Lexer.tokenize("1.0 -3.5 0.01 1.05e-3")
+    assert [{1.05e-123456789,_}] = Lexer.tokenize("1.05e-123456789")
+    assert [{1.0,_}, {-3.5,_}, {0.0987654321,_}, {1.05e-3, %{col: 23}}] = Lexer.tokenize("1.0 -3.5 0.0987654321 1.05e-3")
   end
 
   test "strings" do
